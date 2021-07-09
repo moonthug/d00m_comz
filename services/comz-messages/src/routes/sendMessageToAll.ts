@@ -2,7 +2,7 @@ import { ApiGatewayManagementApi } from 'aws-sdk';
 import { APIGatewayEvent, Context } from 'aws-lambda';
 
 import { createLogger } from '@d00m/logger';
-import { SendMessageToAllRequest } from '@d00m/dto';
+import { D00mAuthorizerContext, SendMessageToAllRequest } from '@d00m/dto';
 import { DynamoDbClient } from '@d00m/dynamo-db';
 
 import { LOG_LEVEL } from '../constants/log';
@@ -22,7 +22,7 @@ export async function sendMessageToAll(
   logger.info(`enter: sendMessageToAll`);
 
   const { CONNECTIONS_TABLE_NAME, MESSAGES_TABLE_NAME } = process.env;
-  const { userId } = request.context;
+  const { userId } = event.requestContext.authorizer as D00mAuthorizerContext;
   const { message } = request.data;
   const { connectionId } = event.requestContext;
 
