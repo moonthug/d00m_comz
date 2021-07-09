@@ -1,0 +1,20 @@
+{
+  "name": "@d00m/logger",
+  "version": "0.0.3",
+  "description": "Logger",
+  "author": "Alex Coulcher <alex@polyglot.rodeo>",
+  "main": "dist/index.js",
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "prebuild": "rm -rf ./dist",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "pino": "^6.11.3"
+  },
+  "devDependencies": {
+    "@types/pino": "^6.3.8"
+  }
+}

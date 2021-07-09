@@ -1,0 +1,14 @@
+{
+  "name": "@d00m/comz-disonconnect",
+  "version": "0.0.4",
+  "description": "d00m-comz API",
+  "author": "Alex Coulcher <alex@polyglot.rodeo>",
+  "private": true,
+  "publishConfig": {
+    "access": "restricted"
+  },
+  "dependencies": {
+    "@d00m/dynamo-db": "^0.0.4",
+    "@d00m/logger": "^0.0.3"
+  }
+}

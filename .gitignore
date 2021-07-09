@@ -1,0 +1,19 @@
+# Created by .ignore support plugin (hsz.mobi)
+*.log
+
+.idea/
+.vscode/
+
+coverage/
+
+node_modules/
+.npmrc
+
+dist/
+.aws-sam/
+
+env.json
+samconfig.toml
+
+aws-toolkit-ts-output/
+aws-toolkit-tsconfig.json

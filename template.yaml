@@ -1,0 +1,534 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: b3t
+
+
+##############################################################################
+#
+# Parameters
+
+Parameters:
+  # Infrastructure Params
+  Environment:
+    Type: String
+    Default: 'local'
+  Namespace:
+    Type: String
+    Default: 'd00m'
+  Stage:
+    Type: String
+    Default: 'v1'
+  LogRetentionInDays:
+    Type: 'String'
+    Default: 14
+
+  # App Params
+  Domain:
+    Type: String
+    Default: 'd00m.ch'
+  ZoneId:
+    Type: String
+    Default: 'Z07459592SK5RJHOWA753'
+  LogLevel:
+    Type: String
+    Default: 'debug'
+
+  # Conditions
+  LogApiGateway:
+    Type: String
+    Default: 'no'
+  CreateAPIGatewayAccountConfig:
+    Type: String
+    Default: 'no'
+
+##############################################################################
+#
+# Globals
+
+Globals:
+
+  Function:
+    Runtime: nodejs14.x
+
+##############################################################################
+#
+# Conditions
+
+Conditions:
+  LogApiGatewayCondition: !Equals [!Ref LogApiGateway, 'yes']
+  CreateAPIGatewayAccountConfigCondition: !Equals [!Ref CreateAPIGatewayAccountConfig, 'yes']
+
+
+##############################################################################
+#
+# Resources
+
+Resources:
+
+  ##############################################
+  #
+  # API
+
+  ####################################
+  # Account Setup
+
+  ApiGatewayAccountConfig:
+    Type: AWS::ApiGateway::Account
+    Condition: CreateAPIGatewayAccountConfigCondition
+    Properties:
+      CloudWatchRoleArn: !GetAtt ApiGatewayLoggingRole.Arn
+
+  ApiGatewayLoggingRole:
+    Type: AWS::IAM::Role
+    Condition: CreateAPIGatewayAccountConfigCondition
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - 'apigateway.amazonaws.com'
+            Action: 'sts:AssumeRole'
+      Path: '/'
+      ManagedPolicyArns:
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs'
+
+
+  ####################################
+  # D00m Gateway
+
+  D00mApiGateway:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: D00mApiGateway
+      ProtocolType: WEBSOCKET
+      RouteSelectionExpression: '${request.body.action}'
+
+  D00mApiGatewayDeployment:
+    Type: AWS::ApiGatewayV2::Deployment
+    DependsOn:
+      - ConnectRoute
+      - DisconnectRoute
+      - MessagesRoute
+      - UsersRoute
+    Properties:
+      ApiId: !Ref D00mApiGateway
+
+  D00mApiGatewayStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      StageName: !Ref Stage
+      DeploymentId: !Ref D00mApiGatewayDeployment
+      ApiId: !Ref D00mApiGateway
+#      DefaultRouteSettings:
+#        DetailedMetricsEnabled: true
+#        LoggingLevel: INFO
+
+  D00mApiGatewayDomainName:
+    Type: AWS::ApiGatewayV2::DomainName
+    Properties:
+      DomainName: !Sub 'ws.${Domain}'
+      DomainNameConfigurations:
+        - EndpointType: REGIONAL
+          CertificateArn: !Ref D00mDomainCertificate
+
+  D00mApiGatewayMapping:
+    Type: AWS::ApiGatewayV2::ApiMapping
+    DependsOn:
+      - D00mApiGatewayStage
+    Properties:
+      ApiId: !Ref D00mApiGateway
+      DomainName: !Ref D00mApiGatewayDomainName
+      Stage: !Ref D00mApiGatewayStage
+      ApiMappingKey: !Ref D00mApiGatewayStage
+
+  D00mApiGatewayAuthorizer:
+    Type: AWS::ApiGatewayV2::Authorizer
+    DependsOn:
+      - AuthorizerFunction
+    Properties:
+      Name: connect-request-authorizer
+      ApiId: !Ref D00mApiGateway
+      AuthorizerType: REQUEST
+      AuthorizerUri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AuthorizerFunction.Arn}/invocations'
+      IdentitySource:
+        - route.request.header.Authorization
+
+
+  ##############################################
+  #
+  # Routes
+
+  ####################################
+  # Authorizer
+
+  AuthorizerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${Namespace}-${Environment}-comz-authorizer'
+      CodeUri: services/comz-authorizer/src
+      Handler: app.authorizerHandler
+      Environment:
+        Variables:
+          ENVIRONMENT: !Ref Environment
+          LOG_LEVEL: !Ref LogLevel
+          USERS_TABLE_NAME: !Ref D00mUsersTable
+
+  AuthorizerPermission:
+    Type: AWS::Lambda::Permission
+    DependsOn:
+      - D00mApiGateway
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref AuthorizerFunction
+      Principal: apigateway.amazonaws.com
+
+  AuthorizerFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    DependsOn:
+      - AuthorizerFunction
+    Properties:
+      LogGroupName: !Join [ '/', [ '/aws/lambda', !Ref AuthorizerFunction ] ]
+      RetentionInDays: !Ref LogRetentionInDays
+
+
+  ####################################
+  # On Connect
+
+  OnConnectFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${Namespace}-${Environment}-comz-onconnect'
+      CodeUri: services/comz-onconnect/src
+      Handler: app.onConnectHandler
+      Environment:
+        Variables:
+          ENVIRONMENT: !Ref Environment
+          LOG_LEVEL: !Ref LogLevel
+          CONNECTIONS_TABLE_NAME: !Ref D00mConnectionsTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref D00mConnectionsTable
+
+  OnConnectPermission:
+    Type: AWS::Lambda::Permission
+    DependsOn:
+      - D00mApiGateway
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref OnConnectFunction
+      Principal: apigateway.amazonaws.com
+
+  OnConnectFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    DependsOn:
+      - OnConnectFunction
+    Properties:
+      LogGroupName: !Join [ '/', [ '/aws/lambda', !Ref OnConnectFunction ] ]
+      RetentionInDays: !Ref LogRetentionInDays
+
+  ConnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    DependsOn:
+      - D00mApiGatewayAuthorizer
+    Properties:
+      ApiId: !Ref D00mApiGateway
+      RouteKey: $connect
+      AuthorizationType: CUSTOM
+      AuthorizerId: !Ref D00mApiGatewayAuthorizer
+      OperationName: ConnectRoute
+      Target: !Join [ '/', [ 'integrations', !Ref ConnectInteg ] ]
+
+  ConnectInteg:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref D00mApiGateway
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${OnConnectFunction.Arn}/invocations'
+
+
+  ####################################
+  # On Disconnect
+
+  OnDisconnectFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${Namespace}-${Environment}-comz-ondisconnect'
+      CodeUri: services/comz-ondisconnect/src
+      Handler: app.onDisconnectHandler
+      Environment:
+        Variables:
+          ENVIRONMENT: !Ref Environment
+          LOG_LEVEL: !Ref LogLevel
+          CONNECTIONS_TABLE_NAME: !Ref D00mConnectionsTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref D00mConnectionsTable
+
+  OnDisconnectPermission:
+    Type: AWS::Lambda::Permission
+    DependsOn:
+      - D00mApiGateway
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref OnDisconnectFunction
+      Principal: apigateway.amazonaws.com
+
+  OnDisconnectFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    DependsOn:
+      - OnDisconnectFunction
+    Properties:
+      LogGroupName: !Join [ '/', [ '/aws/lambda', !Ref OnDisconnectFunction ] ]
+      RetentionInDays: !Ref LogRetentionInDays
+
+  DisconnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref D00mApiGateway
+      RouteKey: $disconnect
+      AuthorizationType: NONE
+      OperationName: DisconnectRoute
+      Target: !Join ['/', [ 'integrations', !Ref DisconnectInteg ]]
+
+  DisconnectInteg:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref D00mApiGateway
+      IntegrationType: AWS_PROXY
+      IntegrationUri:
+        Fn::Sub:
+          arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${OnDisconnectFunction.Arn}/invocations
+
+
+  ####################################
+  # Messages
+
+  MessagesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${Namespace}-${Environment}-comz-messages'
+      CodeUri: services/comz-messages/src
+      Handler: app.messagesHandler
+      Environment:
+        Variables:
+          ENVIRONMENT: !Ref Environment
+          LOG_LEVEL: !Ref LogLevel
+          CONNECTIONS_TABLE_NAME: !Ref D00mConnectionsTable
+          MESSAGES_TABLE_NAME: !Ref D00mMessagesTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref D00mConnectionsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref D00mMessagesTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - 'execute-api:ManageConnections'
+              Resource:
+                - !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${D00mApiGateway}/*'
+
+  MessagesPermission:
+    Type: AWS::Lambda::Permission
+    DependsOn:
+      - D00mApiGateway
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref MessagesFunction
+      Principal: apigateway.amazonaws.com
+
+  MessagesFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    DependsOn:
+      - MessagesFunction
+    Properties:
+      LogGroupName: !Join [ '/', [ '/aws/lambda', !Ref MessagesFunction ] ]
+      RetentionInDays: !Ref LogRetentionInDays
+
+  MessagesRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref D00mApiGateway
+      RouteKey: messages
+      AuthorizationType: NONE
+      OperationName: MessagesRoute
+      Target: !Join ['/', [ 'integrations', !Ref MessagesInteg ]]
+
+  MessagesInteg:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref D00mApiGateway
+      IntegrationType: AWS_PROXY
+      IntegrationUri:
+        Fn::Sub:
+          arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${MessagesFunction.Arn}/invocations
+
+
+  ####################################
+  # Users
+
+  UsersFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${Namespace}-${Environment}-comz-users'
+      CodeUri: services/comz-users/src
+      Handler: app.usersHandler
+      Environment:
+        Variables:
+          ENVIRONMENT: !Ref Environment
+          LOG_LEVEL: !Ref LogLevel
+          CONNECTIONS_TABLE_NAME: !Ref D00mConnectionsTable
+          MESSAGES_TABLE_NAME: !Ref D00mMessagesTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref D00mConnectionsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref D00mMessagesTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - 'execute-api:ManageConnections'
+              Resource:
+                - !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${D00mApiGateway}/*'
+
+  UsersPermission:
+    Type: AWS::Lambda::Permission
+    DependsOn:
+      - D00mApiGateway
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref UsersFunction
+      Principal: apigateway.amazonaws.com
+
+  UsersFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    DependsOn:
+      - UsersFunction
+    Properties:
+      LogGroupName: !Join [ '/', [ '/aws/lambda', !Ref UsersFunction ] ]
+      RetentionInDays: !Ref LogRetentionInDays
+
+  UsersRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref D00mApiGateway
+      RouteKey: users
+      AuthorizationType: NONE
+      OperationName: UsersRoute
+      Target: !Join ['/', [ 'integrations', !Ref UsersInteg ]]
+
+  UsersInteg:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref D00mApiGateway
+      IntegrationType: AWS_PROXY
+      IntegrationUri:
+        Fn::Sub:
+          arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${UsersFunction.Arn}/invocations
+
+
+  ##############################################
+  #
+  # Databases
+
+  ####################################
+  # DynamoDB
+
+  D00mConnectionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${Namespace}-${Environment}-connections'
+      AttributeDefinitions:
+        - AttributeName: connectionId
+          AttributeType: S
+        - AttributeName: userId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: connectionId
+          KeyType: HASH
+        - AttributeName: userId
+          KeyType: RANGE
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+
+  D00mMessagesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${Namespace}-${Environment}-user-messages'
+      AttributeDefinitions:
+        - AttributeName: toUserId
+          AttributeType: S
+        - AttributeName: createdAt
+          AttributeType: S
+      KeySchema:
+        - AttributeName: toUserId
+          KeyType: HASH
+        - AttributeName: createdAt
+          KeyType: RANGE
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+
+  D00mUsersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${Namespace}-${Environment}-users'
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 1
+
+
+  ##############################################
+  #
+  # Route53
+
+  D00mApiGatewayDNSRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneName: !Sub '${Domain}.'
+      Name: !Sub 'ws.${Domain}'
+      ResourceRecords:
+        - !GetAtt D00mApiGatewayDomainName.RegionalDomainName
+      TTL: 300
+      Type: CNAME
+
+
+  ##############################################
+  #
+  # Certificates
+
+  D00mDomainCertificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Sub 'ws.${Domain}'
+      DomainValidationOptions:
+        - DomainName: !Sub 'ws.${Domain}'
+          HostedZoneId: !Ref ZoneId
+      ValidationMethod: DNS
+
+
+##############################################################################
+#
+# Outputs
+
+Outputs:
+  WebSocketURL:
+    Description: 'D00m Websocket API Gateway Url'
+    Value: !Join [ '', [ 'wss://ws.', !Ref Domain, '/', !Ref D00mApiGatewayStage] ]
+
+  FullWebSocketURL:
+    Description: 'Full D00m Websocket API Gateway Url'
+    Value: !Join [ '', [ 'wss://', !Ref D00mApiGateway, '.execute-api.', !Ref 'AWS::Region','.amazonaws.com/', !Ref D00mApiGatewayStage] ]

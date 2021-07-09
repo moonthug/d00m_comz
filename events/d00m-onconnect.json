@@ -1,0 +1,14 @@
+{
+  "body": "{\"test\":\"body\"}",
+  "queryStringParameters": {
+  },
+  "pathParameters": {
+  },
+  "stageVariables": {
+  },
+  "headers": {
+  },
+  "requestContext": {
+    "connectionId": "x-123"
+  }
+}
