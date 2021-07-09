@@ -34,7 +34,7 @@ resource "aws_cognito_user_pool" "main" {
   }
 
   email_configuration {
-    reply_to_email_address = "no-reply@bet666.lol"
+    reply_to_email_address = "no-reply@d00m.ch"
   }
 }
 

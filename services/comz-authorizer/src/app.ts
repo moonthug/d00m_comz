@@ -39,7 +39,7 @@ export async function authorizerHandler(
   dynamoDbClient = await createDynamoDbClientForLambda(dynamoDbClient);
 
   // Authenticate
-  const me = await dynamoDbClient.query(
+  const response = await dynamoDbClient.query(
     {
       TableName: USERS_TABLE_NAME,
       KeyConditionExpression: 'id = :userId',
@@ -50,9 +50,11 @@ export async function authorizerHandler(
     }).promise();
 
   // Bail if user not found
-  if (!me || !me.Items.length) {
+  if (!response || !response.Items.length) {
     throw new Error(`Cannot find user: ${userId}`);
   }
+
+  const me = response.Items[0];
 
   // Set context
   const authContext: D00mAuthorizerContext = {
