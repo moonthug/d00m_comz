@@ -1,5 +1,5 @@
 {
-  "name": "@d00m/comz-messages",
+  "name": "@d00m/comz-list-users",
   "version": "0.0.7",
   "description": "d00m-comz API",
   "author": "Alex Coulcher <alex@polyglot.rodeo>",
@@ -11,6 +11,7 @@
     "@d00m/dto": "^0.0.7",
     "@d00m/dynamo-db": "^0.0.4",
     "@d00m/logger": "^0.0.3",
+    "@d00m/models": "^0.0.1",
     "aws-sdk": "^2.940.0"
   }
 }

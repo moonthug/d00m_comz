@@ -1,14 +1,11 @@
 {
-  "body": "{\"test\":\"body\"}",
-  "queryStringParameters": {
-  },
-  "pathParameters": {
-  },
-  "stageVariables": {
-  },
-  "headers": {
-  },
   "requestContext": {
-    "connectionId": "x-123"
+    "connectionId": "x-123",
+    "authorizer": {
+      "userId": "user-1",
+      "userName": "Alex",
+      "userAgent": "user-agent",
+      "authorizedAt": "<date>"
+    }
   }
 }

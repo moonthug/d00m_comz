@@ -5,7 +5,7 @@ export async function createDynamoDbClientForLambda(client: DynamoDbClient): Pro
 
   client = await createDynamoDb({}, {
     endpoint: process.env.AWS_SAM_LOCAL
-      ? 'http://:8000'
+      ? 'http://host.docker.internal:4566'
       : undefined
   });
 

@@ -2,8 +2,9 @@ import { APIGatewayAuthorizerEvent, APIGatewayAuthorizerWithContextResult, APIGa
 
 import { createLogger } from '@d00m/logger';
 import { createDynamoDbClientForLambda, DynamoDbClient } from '@d00m/dynamo-db';
-
+import { UsersTable } from '@d00m/models';
 import { D00mAuthorizerContext } from '@d00m/dto';
+
 import { LOG_LEVEL } from './constants/log';
 import { createDenyPolicy } from './helpers/createDenyPolicy';
 import { createAllowPolicy } from './helpers/createAllowPolicy';
@@ -39,22 +40,12 @@ export async function authorizerHandler(
   dynamoDbClient = await createDynamoDbClientForLambda(dynamoDbClient);
 
   // Authenticate
-  const response = await dynamoDbClient.query(
-    {
-      TableName: USERS_TABLE_NAME,
-      KeyConditionExpression: 'id = :userId',
-      ExpressionAttributeValues: {
-        ':userId': userId
-      },
-      ProjectionExpression: 'id,name'
-    }).promise();
+  const me = await UsersTable.getUserById(dynamoDbClient, USERS_TABLE_NAME, userId);
 
   // Bail if user not found
-  if (!response || !response.Items.length) {
+  if (!me) {
     throw new Error(`Cannot find user: ${userId}`);
   }
-
-  const me = response.Items[0];
 
   // Set context
   const authContext: D00mAuthorizerContext = {

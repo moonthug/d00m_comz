@@ -110,8 +110,9 @@ Resources:
     DependsOn:
       - ConnectRoute
       - DisconnectRoute
-      - MessagesRoute
-      - UsersRoute
+      - SendMessageRoute
+      - ListUsersRoute
+      - ChatHistoryRoute
     Properties:
       ApiId: !Ref D00mApiGateway
 
@@ -236,7 +237,7 @@ Resources:
       - D00mApiGatewayAuthorizer
     Properties:
       ApiId: !Ref D00mApiGateway
-      RouteKey: $connect
+      RouteKey: '$connect'
       AuthorizationType: CUSTOM
       AuthorizerId: !Ref D00mApiGatewayAuthorizer
       OperationName: ConnectRoute
@@ -290,7 +291,7 @@ Resources:
     Type: AWS::ApiGatewayV2::Route
     Properties:
       ApiId: !Ref D00mApiGateway
-      RouteKey: $disconnect
+      RouteKey: '$disconnect'
       AuthorizationType: NONE
       OperationName: DisconnectRoute
       Target: !Join ['/', [ 'integrations', !Ref DisconnectInteg ]]
@@ -300,20 +301,18 @@ Resources:
     Properties:
       ApiId: !Ref D00mApiGateway
       IntegrationType: AWS_PROXY
-      IntegrationUri:
-        Fn::Sub:
-          arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${OnDisconnectFunction.Arn}/invocations
+      IntegrationUri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${OnDisconnectFunction.Arn}/invocations'
 
 
   ####################################
-  # Messages
+  # chat-history
 
-  MessagesFunction:
+  ChatHistoryFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub '${Namespace}-${Environment}-comz-messages'
-      CodeUri: services/comz-messages/src
-      Handler: app.messagesHandler
+      FunctionName: !Sub '${Namespace}-${Environment}-comz-chat-history'
+      CodeUri: services/comz-chat-history/src
+      Handler: app.chatHistoryHandler
       Environment:
         Variables:
           ENVIRONMENT: !Ref Environment
@@ -332,52 +331,112 @@ Resources:
               Resource:
                 - !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${D00mApiGateway}/*'
 
-  MessagesPermission:
+  ChatHistoryPermission:
     Type: AWS::Lambda::Permission
     DependsOn:
       - D00mApiGateway
     Properties:
       Action: lambda:InvokeFunction
-      FunctionName: !Ref MessagesFunction
+      FunctionName: !Ref ChatHistoryFunction
       Principal: apigateway.amazonaws.com
 
-  MessagesFunctionLogGroup:
+  ChatHistoryFunctionLogGroup:
     Type: AWS::Logs::LogGroup
     DeletionPolicy: Delete
     DependsOn:
-      - MessagesFunction
+      - ChatHistoryFunction
     Properties:
-      LogGroupName: !Join [ '/', [ '/aws/lambda', !Ref MessagesFunction ] ]
+      LogGroupName: !Join [ '/', [ '/aws/lambda', !Ref ChatHistoryFunction ] ]
       RetentionInDays: !Ref LogRetentionInDays
 
-  MessagesRoute:
+  ChatHistoryRoute:
     Type: AWS::ApiGatewayV2::Route
     Properties:
       ApiId: !Ref D00mApiGateway
-      RouteKey: messages
+      RouteKey: 'chat-history'
       AuthorizationType: NONE
-      OperationName: MessagesRoute
-      Target: !Join ['/', [ 'integrations', !Ref MessagesInteg ]]
+      OperationName: ChatHistoryRoute
+      Target: !Join [ '/', [ 'integrations', !Ref ChatHistoryInteg ] ]
 
-  MessagesInteg:
+  ChatHistoryInteg:
     Type: AWS::ApiGatewayV2::Integration
     Properties:
       ApiId: !Ref D00mApiGateway
       IntegrationType: AWS_PROXY
-      IntegrationUri:
-        Fn::Sub:
-          arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${MessagesFunction.Arn}/invocations
+      IntegrationUri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ChatHistoryFunction.Arn}/invocations'
 
 
   ####################################
-  # Users
+  # send-message
 
-  UsersFunction:
+  SendMessageFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${Namespace}-${Environment}-comz-send-message'
+      CodeUri: services/comz-send-message/src
+      Handler: app.sendMessageHandler
+      Environment:
+        Variables:
+          ENVIRONMENT: !Ref Environment
+          LOG_LEVEL: !Ref LogLevel
+          CONNECTIONS_TABLE_NAME: !Ref D00mConnectionsTable
+          MESSAGES_TABLE_NAME: !Ref D00mMessagesTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref D00mConnectionsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref D00mMessagesTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - 'execute-api:ManageConnections'
+              Resource:
+                - !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${D00mApiGateway}/*'
+
+  SendMessagePermission:
+    Type: AWS::Lambda::Permission
+    DependsOn:
+      - D00mApiGateway
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref SendMessageFunction
+      Principal: apigateway.amazonaws.com
+
+  SendMessageFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    DependsOn:
+      - SendMessageFunction
+    Properties:
+      LogGroupName: !Join [ '/', [ '/aws/lambda', !Ref SendMessageFunction ] ]
+      RetentionInDays: !Ref LogRetentionInDays
+
+  SendMessageRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref D00mApiGateway
+      RouteKey: 'send-message'
+      AuthorizationType: NONE
+      OperationName: SendMessageRoute
+      Target: !Join ['/', [ 'integrations', !Ref SendMessageInteg ]]
+
+  SendMessageInteg:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref D00mApiGateway
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SendMessageFunction.Arn}/invocations'
+
+
+  ####################################
+  # list-users
+
+  ListUsersFunction:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub '${Namespace}-${Environment}-comz-users'
-      CodeUri: services/comz-users/src
-      Handler: app.usersHandler
+      CodeUri: services/comz-list-users/src
+      Handler: app.listUsersHandler
       Environment:
         Variables:
           ENVIRONMENT: !Ref Environment
@@ -396,41 +455,39 @@ Resources:
               Resource:
                 - !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${D00mApiGateway}/*'
 
-  UsersPermission:
+  ListUsersPermission:
     Type: AWS::Lambda::Permission
     DependsOn:
       - D00mApiGateway
     Properties:
       Action: lambda:InvokeFunction
-      FunctionName: !Ref UsersFunction
+      FunctionName: !Ref ListUsersFunction
       Principal: apigateway.amazonaws.com
 
-  UsersFunctionLogGroup:
+  ListUsersFunctionLogGroup:
     Type: AWS::Logs::LogGroup
     DeletionPolicy: Delete
     DependsOn:
-      - UsersFunction
+      - ListUsersFunction
     Properties:
-      LogGroupName: !Join [ '/', [ '/aws/lambda', !Ref UsersFunction ] ]
+      LogGroupName: !Join [ '/', [ '/aws/lambda', !Ref ListUsersFunction ] ]
       RetentionInDays: !Ref LogRetentionInDays
 
-  UsersRoute:
+  ListUsersRoute:
     Type: AWS::ApiGatewayV2::Route
     Properties:
       ApiId: !Ref D00mApiGateway
-      RouteKey: users
+      RouteKey: 'list-users'
       AuthorizationType: NONE
-      OperationName: UsersRoute
-      Target: !Join ['/', [ 'integrations', !Ref UsersInteg ]]
+      OperationName: ListUsersRoute
+      Target: !Join ['/', [ 'integrations', !Ref ListUsersInteg ]]
 
-  UsersInteg:
+  ListUsersInteg:
     Type: AWS::ApiGatewayV2::Integration
     Properties:
       ApiId: !Ref D00mApiGateway
       IntegrationType: AWS_PROXY
-      IntegrationUri:
-        Fn::Sub:
-          arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${UsersFunction.Arn}/invocations
+      IntegrationUri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ListUsersFunction.Arn}/invocations'
 
 
   ##############################################
@@ -461,14 +518,14 @@ Resources:
   D00mMessagesTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub '${Namespace}-${Environment}-user-messages'
+      TableName: !Sub '${Namespace}-${Environment}-messages'
       AttributeDefinitions:
-        - AttributeName: toUserId
+        - AttributeName: fromUserId
           AttributeType: S
         - AttributeName: createdAt
           AttributeType: S
       KeySchema:
-        - AttributeName: toUserId
+        - AttributeName: fromUserId
           KeyType: HASH
         - AttributeName: createdAt
           KeyType: RANGE
