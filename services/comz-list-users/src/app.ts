@@ -2,14 +2,11 @@ import { APIGatewayEvent, Context } from 'aws-lambda';
 import { ApiGatewayManagementApi } from 'aws-sdk';
 
 import { createLogger } from '@d00m/logger';
-import { Action, ListUsersResponse, ListUsersResponseUser } from '@d00m/dto';
+import { ActionType, ListUsersResponse } from '@d00m/dto';
 import { createDynamoDbClientForLambda, DynamoDbClient } from '@d00m/dynamo-db';
-import { ConnectionsTable } from '@d00m/models';
+import { sendToConnection, fetchOnlineUsers } from '@d00m/comz';
 
 import { LOG_LEVEL } from './constants/log';
-import { fetchGroupedUsers } from '../../../packages/comz/src/api/fetchGroupedUsers';
-import { fetchOnlineUsers } from '../../../packages/comz/src/api/fetchOnlineUsers';
-import { sendToConnection } from '@d00m/comz';
 
 
 let dynamoDbClient: DynamoDbClient;
@@ -40,7 +37,7 @@ export async function listUsersHandler(
 
   // Build response
   const response: ListUsersResponse = {
-    action: Action.LIST_USERS,
+    action: ActionType.LIST_USERS,
     success: true,
     data: {
       users
