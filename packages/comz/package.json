@@ -1,6 +1,6 @@
 {
   "name": "@d00m/comz",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "description": "Comz",
   "author": "Alex Coulcher <alex@polyglot.rodeo>",
   "main": "dist/index.js",
@@ -12,9 +12,9 @@
     "build": "tsc"
   },
   "dependencies": {
-    "@d00m/dto": "^0.0.10",
+    "@d00m/dto": "^0.0.11",
     "@d00m/dynamo-db": "^0.0.5",
-    "@d00m/models": "^0.0.4",
+    "@d00m/models": "^0.0.5",
     "aws-sdk": "^2.944.0"
   }
 }
