@@ -11,8 +11,9 @@ export async function sendToConnection(
   payload: Event | ActionResponse,
 ): Promise<any> {
   // Send event
+  let response;
   try {
-    return apigwManagementApi
+    response = await apigwManagementApi
       .postToConnection({ ConnectionId: connectionId, Data: JSON.stringify(payload) })
       .promise();
   } catch (e) {
@@ -24,4 +25,5 @@ export async function sendToConnection(
     }
   }
 
+  return response;
 }

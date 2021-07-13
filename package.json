@@ -29,7 +29,7 @@
     "prewatch": "npm run clean",
     "test": "jest --coverage",
     "test:watch": "jest --watch --coverage",
-    "webpack": "webpack-cli",
+    "webpack": "node --max-old-space-size=8192 node_modules/webpack/bin/webpack.js",
     "watch": "webpack-cli -w"
   },
   "husky": {
