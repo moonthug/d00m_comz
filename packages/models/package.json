@@ -1,6 +1,6 @@
 {
   "name": "@d00m/models",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Models",
   "author": "Alex Coulcher <alex@polyglot.rodeo>",
   "main": "dist/index.js",
