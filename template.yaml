@@ -226,6 +226,12 @@ Resources:
             TableName: !Ref D00mConnectionsTable
         - DynamoDBCrudPolicy:
             TableName: !Ref D00mUsersTable
+        - Statement:
+          - Effect: Allow
+            Action:
+              - 'execute-api:ManageConnections'
+            Resource:
+              - !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${D00mApiGateway}/*'
 
   OnConnectPermission:
     Type: AWS::Lambda::Permission
@@ -282,6 +288,12 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref D00mConnectionsTable
+        - Statement:
+          - Effect: Allow
+            Action:
+              - 'execute-api:ManageConnections'
+            Resource:
+              - !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${D00mApiGateway}/*'
 
   OnDisconnectPermission:
     Type: AWS::Lambda::Permission
@@ -339,11 +351,11 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !Ref D00mMessagesTable
         - Statement:
-            - Effect: Allow
-              Action:
-                - 'execute-api:ManageConnections'
-              Resource:
-                - !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${D00mApiGateway}/*'
+          - Effect: Allow
+            Action:
+              - 'execute-api:ManageConnections'
+            Resource:
+              - !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${D00mApiGateway}/*'
 
   ChatHistoryPermission:
     Type: AWS::Lambda::Permission
