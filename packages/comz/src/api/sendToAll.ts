@@ -26,7 +26,13 @@ export async function sendToAll(
       ? !options.skipUserIds.includes(connection.userId)
       : true
     )
-    .map(connection => sendToConnection(connection.id, apigwManagementApi, event));
+    .map(connection => sendToConnection(
+      dynamoDbClient,
+      tableName,
+      apigwManagementApi,
+      connection.id,
+      event
+    ));
 
   return Promise.all(postCalls);
 }

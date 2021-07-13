@@ -50,17 +50,17 @@ export async function listUsersHandler(
   // Send response to callee
   try {
     logger.info(`Post to connection ${connectionId}`);
-
-    await sendToConnection(connectionId, apigwManagementApi, response);
+    await sendToConnection(
+      dynamoDbClient,
+      CONNECTIONS_TABLE_NAME,
+      apigwManagementApi,
+      connectionId,
+      response
+    );
   } catch (e) {
-    if (e.statusCode === 410) {
-      logger.info(`Found stale connection, deleting ${connectionId}`);
-      await dynamoDbClient.delete({ TableName: CONNECTIONS_TABLE_NAME, Key: { id: connectionId } }).promise();
-    } else {
-      logger.error(`Couldn't post to connection ${connectionId}`);
-      logger.error(e);
-      throw e;
-    }
+    logger.error(`Couldn't post to connection ${connectionId}`);
+    logger.error(e);
+    throw e;
   }
 
   logger.info(`exit: listUsersHandler`);

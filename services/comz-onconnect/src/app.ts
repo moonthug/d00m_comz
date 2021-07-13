@@ -58,7 +58,6 @@ export async function onConnectHandler(
       },
       CONNECTION_EXPIRATION_S
     );
-
   } catch (e) {
     logger.error(`Couldn't put connection in db`);
     logger.error(e);
