@@ -7,6 +7,9 @@ import { createDynamoDbClientForLambda, DynamoDbClient } from '@d00m/dynamo-db';
 import { ConnectionsTable } from '@d00m/models';
 
 import { LOG_LEVEL } from './constants/log';
+import { fetchGroupedUsers } from '../../../packages/comz/src/api/fetchGroupedUsers';
+import { fetchOnlineUsers } from '../../../packages/comz/src/api/fetchOnlineUsers';
+import { sendToConnection } from '@d00m/comz';
 
 
 let dynamoDbClient: DynamoDbClient;
@@ -26,61 +29,29 @@ export async function listUsersHandler(
   // Connect & cache DB
   dynamoDbClient = await createDynamoDbClientForLambda(dynamoDbClient);
 
-  // Fetch all connections
-  let connections;
-  try {
-    connections = await ConnectionsTable.scan(dynamoDbClient, CONNECTIONS_TABLE_NAME);
-  } catch (e) {
-    return { statusCode: 500, body: e.stack };
-  }
-
-  // Group Connections
-  const users = connections.reduce((acc, connection) => {
-    if (acc.has(connection.userId)) {
-      const existing = acc.get(connection.userId);
-      acc.set(connection.userId, {
-        ...existing,
-        connections: [
-          ...existing.connections,
-          connection.id
-        ]
-      });
-    } else {
-      acc.set(connection.userId, {
-        id: connection.userId,
-        name: connection.userName,
-        connections: [
-          connection.id
-        ]
-      });
-    }
-
-    return acc;
-
-  }, new Map<string, ListUsersResponseUser>())
-
-  // Build response
-  const response: ListUsersResponse = {
-    action: Action.LIST_USERS,
-    success: true,
-    data: {
-      users: Array.from(users.values())
-    }
-  }
-
   // Create API Gateway Manager
   const apigwManagementApi = new ApiGatewayManagementApi({
     apiVersion: '2018-11-29',
     endpoint: event.requestContext.domainName + '/' + event.requestContext.stage
   });
 
+  // Fetch all connections
+  const users = await fetchOnlineUsers(dynamoDbClient, CONNECTIONS_TABLE_NAME);
+
+  // Build response
+  const response: ListUsersResponse = {
+    action: Action.LIST_USERS,
+    success: true,
+    data: {
+      users
+    }
+  }
+
   // Send response to callee
   try {
     logger.info(`Post to connection ${connectionId}`);
 
-    await apigwManagementApi
-      .postToConnection({ ConnectionId: connectionId, Data: JSON.stringify(response) })
-      .promise();
+    await sendToConnection(connectionId, apigwManagementApi, response);
   } catch (e) {
     if (e.statusCode === 410) {
       logger.info(`Found stale connection, deleting ${connectionId}`);

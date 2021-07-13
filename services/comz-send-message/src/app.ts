@@ -3,10 +3,11 @@ import { ApiGatewayManagementApi } from 'aws-sdk';
 
 import { createLogger } from '@d00m/logger';
 import { createDynamoDbClientForLambda, DynamoDbClient } from '@d00m/dynamo-db';
-import { D00mAuthorizerContext, Event, MessageEvent, SendMessageActionBody } from '@d00m/dto';
+import { D00mAuthorizerContext, Event, EventType, MessageEvent, SendMessageActionRequest } from '@d00m/dto';
 import { Connection, ConnectionsTable, MessagesTable } from '@d00m/models';
 
 import { LOG_LEVEL } from './constants/log';
+import { sendToAll } from '@d00m/comz';
 
 
 let dynamoDbClient: DynamoDbClient;
@@ -19,7 +20,7 @@ export async function sendMessageHandler(
   logger.info(`enter: sendMessageHandler`);
 
   const { CONNECTIONS_TABLE_NAME, MESSAGES_TABLE_NAME } = process.env;
-  const { userId } = event.requestContext.authorizer as D00mAuthorizerContext;
+  const { userId, userName } = event.requestContext.authorizer as D00mAuthorizerContext;
   const { connectionId } = event.requestContext;
 
   context.callbackWaitsForEmptyEventLoop = false;
@@ -27,73 +28,41 @@ export async function sendMessageHandler(
   // Connect & cache DB
   dynamoDbClient = await createDynamoDbClientForLambda(dynamoDbClient);
 
-  // Parse Body
-  const body = JSON.parse(event.body) as SendMessageActionBody;
-  const { message } = body;
-
-  // Fetch All connections
-  let connections;
-  try {
-    connections = await ConnectionsTable.scan(dynamoDbClient, CONNECTIONS_TABLE_NAME);
-  } catch (e) {
-    return { statusCode: 500, body: e.stack };
-  }
-
-  logger.info(`Post to ${connections.length} connections`);
-  logger.debug(body);
-
   // Api Manager
   const apigwManagementApi = new ApiGatewayManagementApi({
     apiVersion: '2018-11-29',
     endpoint: event.requestContext.domainName + '/' + event.requestContext.stage
   });
 
+  // Parse Body
+  const request = JSON.parse(event.body) as SendMessageActionRequest;
+  const { message } = request.data;
+
   // Put message
   await MessagesTable.create(dynamoDbClient, MESSAGES_TABLE_NAME, {
     fromUserId: userId,
+    fromUserName: userName,
     fromConnectionId: connectionId,
     message,
   });
 
-  // Send events to each live connection
-  const postCalls = connections.map(async (connection: Connection) => {
-    if (connection.userId === userId) {
-      logger.info(`Skipping post to self ${connection.id} [@${connection.userId}]`);
-      return Promise.resolve();
+  const messageEvent: MessageEvent = {
+    event: EventType.MESSAGE,
+    data: {
+      fromUserId: userId,
+      fromUserName: userName,
+      createdAt: new Date(),
+      message
     }
-
-    try {
-      logger.info(`Post to connection ${connection.id} [@${connection.userId}]`);
-
-      const messageEvent: MessageEvent = {
-        event: Event.MESSAGE,
-        data: {
-          message
-        }
-      }
-
-      // Send event
-      await apigwManagementApi
-        .postToConnection({ ConnectionId: connection.id, Data: JSON.stringify(messageEvent) })
-        .promise();
-
-    } catch (e) {
-      if (e.statusCode === 410) {
-        logger.info(`Found stale connection, deleting ${connection.id} [@${connection.userId}]`);
-        await dynamoDbClient.delete({ TableName: CONNECTIONS_TABLE_NAME, Key: { id: connection.id } }).promise();
-      } else {
-        logger.error(`Couldn't post to connection ${connection.id} [@${connection.userId}]`);
-        logger.error(e);
-        throw e;
-      }
-    }
-  });
-
-  try {
-    await Promise.all(postCalls);
-  } catch (e) {
-    return { statusCode: 500, body: e.stack };
   }
+
+  await sendToAll(
+    dynamoDbClient,
+    CONNECTIONS_TABLE_NAME,
+    apigwManagementApi,
+    messageEvent,
+    { skipUserIds: [ userId ] }
+  );
 
   logger.info(`exit: sendMessageHandler`);
 

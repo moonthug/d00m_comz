@@ -25,17 +25,17 @@ export async function authorizerHandler(
   const { CONNECTIONS_TABLE_NAME, USERS_TABLE_NAME } = process.env;
   const { connectionId } = event.requestContext;
 
-  const authorization = event.headers['Authorization'];
+  const token = event.queryStringParameters.token;
   const userAgent = event.headers['User-Agent'];
 
   // Bail if not Auth header
-  if (!authorization) {
-    logger.warn(`No authorization sent in headers`);
+  if (!token) {
+    logger.warn(`No 'token' sent in query params`);
     return createDenyPolicy('me', event.methodArn);
   }
 
   // @TODO Authorize and get userId
-  const userId = authorization;
+  const userId = token;
 
   // Connect & cache DB
   dynamoDbClient = await createDynamoDbClientForLambda(dynamoDbClient);

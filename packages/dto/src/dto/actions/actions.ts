@@ -1,15 +1,11 @@
-export enum Action {
+export enum ActionType {
   SEND_MESSAGE = 'send-message',
   CHAT_HISTORY = 'chat-history',
   LIST_USERS = 'list-users'
 }
 
-export enum Event {
-  MESSAGE = 'message'
-}
-
-export interface ActionEvent {
-  event: Event;
+export interface ActionRequest {
+  action: ActionType;
   data?: unknown;
 }
 

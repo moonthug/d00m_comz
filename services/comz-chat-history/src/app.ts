@@ -2,9 +2,10 @@ import { APIGatewayEvent, Context } from 'aws-lambda';
 import { ApiGatewayManagementApi } from 'aws-sdk';
 
 import { createLogger } from '@d00m/logger';
-import { Action, ChatHistoryResponse } from '@d00m/dto';
+import { ActionType, ChatHistoryResponse } from '@d00m/dto';
 import { createDynamoDbClientForLambda, DynamoDbClient } from '@d00m/dynamo-db';
 import { MessagesTable } from '@d00m/models';
+import { sendToConnection } from '@d00m/comz';
 
 import { LOG_LEVEL } from './constants/log';
 
@@ -26,7 +27,13 @@ export async function chatHistoryHandler(
   // Connect & cache DB
   dynamoDbClient = await createDynamoDbClientForLambda(dynamoDbClient);
 
-  // Fetch all users
+  // Create API Gateway Manager
+  const apigwManagementApi = new ApiGatewayManagementApi({
+    apiVersion: '2018-11-29',
+    endpoint: event.requestContext.domainName + '/' + event.requestContext.stage
+  });
+
+  // Fetch all messages
   let messages;
   try {
     messages = await MessagesTable.scan(dynamoDbClient, MESSAGES_TABLE_NAME);
@@ -36,26 +43,18 @@ export async function chatHistoryHandler(
 
   // Build response
   const response: ChatHistoryResponse = {
-    action: Action.CHAT_HISTORY,
+    action: ActionType.CHAT_HISTORY,
     success: true,
     data: {
       messages
     }
   }
 
-  // Create API Gateway Manager
-  const apigwManagementApi = new ApiGatewayManagementApi({
-    apiVersion: '2018-11-29',
-    endpoint: event.requestContext.domainName + '/' + event.requestContext.stage
-  });
-
   // Send response to callee
   try {
     logger.info(`Post to connection ${connectionId}`);
 
-    await apigwManagementApi
-      .postToConnection({ ConnectionId: connectionId, Data: JSON.stringify(response) })
-      .promise();
+    await sendToConnection(connectionId, apigwManagementApi, response);
   } catch (e) {
     if (e.statusCode === 410) {
       logger.info(`Found stale connection, deleting ${connectionId}`);

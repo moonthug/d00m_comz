@@ -1,7 +1,9 @@
 {
   "headers": {
-    "Authorization": "123",
     "User-Agent": "Test Invoker 1.0"
+  },
+  "queryStringParameters": {
+    "token": "123"
   },
   "requestContext": {
     "connectionId": "connection-1"

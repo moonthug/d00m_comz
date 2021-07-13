@@ -157,7 +157,7 @@ Resources:
       AuthorizerType: REQUEST
       AuthorizerUri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AuthorizerFunction.Arn}/invocations'
       IdentitySource:
-        - route.request.header.Authorization
+        - route.request.querystring.token
 
 
   ##############################################
@@ -502,6 +502,10 @@ Resources:
       ApiId: !Ref D00mApiGateway
       IntegrationType: AWS_PROXY
       IntegrationUri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ListUsersFunction.Arn}/invocations'
+
+  ##############################################
+  #
+  # Buckets
 
 
   ##############################################

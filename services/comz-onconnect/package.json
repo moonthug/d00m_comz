@@ -8,9 +8,11 @@
     "access": "restricted"
   },
   "dependencies": {
+    "@d00m/comz": "^0.0.10",
     "@d00m/dto": "^0.0.10",
     "@d00m/dynamo-db": "^0.0.5",
     "@d00m/logger": "^0.0.4",
-    "@d00m/models": "^0.0.4"
+    "@d00m/models": "^0.0.4",
+    "aws-sdk": "^2.944.0"
   }
 }

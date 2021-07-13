@@ -1,7 +1,7 @@
 {
   "name": "@d00m/dto",
   "version": "0.0.10",
-  "description": "Database",
+  "description": "DTOs",
   "author": "Alex Coulcher <alex@polyglot.rodeo>",
   "main": "dist/index.js",
   "publishConfig": {

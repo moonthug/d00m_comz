@@ -7,9 +7,23 @@ export interface User {
   lastConnectedAt: Date;
 }
 
+export interface UserData {
+  id: string;   // HASH
+  name: string;
+  lastSeenAt: string;
+  lastConnectedAt: string;
+}
 
 export class UsersTable {
-  static async getById(dynamoDbClient: DynamoDbClient, tableName: string, id: string) {
+  private static mapDateToModel(data: UserData): User {
+    return {
+      ...data,
+      lastSeenAt: new Date(data.lastSeenAt),
+      lastConnectedAt: new Date(data.lastConnectedAt)
+    }
+  }
+
+  static async getById(dynamoDbClient: DynamoDbClient, tableName: string, id: string): Promise<User> {
     const response = await dynamoDbClient.query({
         TableName: tableName,
         KeyConditionExpression: 'id = :i',
@@ -26,7 +40,7 @@ export class UsersTable {
       return undefined;
     }
 
-    return response.Items[0] as User;
+    return UsersTable.mapDateToModel(response.Items[0] as UserData);
   }
 
   static async updateLastSeenAt(
@@ -34,7 +48,7 @@ export class UsersTable {
     tableName: string,
     id: string,
     seenAt: Date
-  ) {
+  ): Promise<User> {
     const response = await dynamoDbClient.update({
         TableName: tableName,
         Key: {
@@ -47,7 +61,7 @@ export class UsersTable {
         ReturnValues: 'ALL_NEW'
       }).promise();
 
-    return response.$response.data as User;
+    return UsersTable.mapDateToModel(response.$response.data as UserData);
   }
 
   static async updateLastConnectedAt(
@@ -55,7 +69,7 @@ export class UsersTable {
     tableName: string,
     id: string,
     connectedAt: Date
-  ) {
+  ): Promise<User> {
     const response = await dynamoDbClient.update({
         TableName: tableName,
         Key: {
@@ -68,6 +82,6 @@ export class UsersTable {
         ReturnValues: 'ALL_NEW'
       }).promise();
 
-    return response.$response.data as User;
+    return UsersTable.mapDateToModel(response.$response.data as UserData);
   }
 }

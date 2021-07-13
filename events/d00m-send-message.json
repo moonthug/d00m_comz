@@ -1,5 +1,5 @@
 {
-  "body": "{\"message\": \"Some message\"}",
+  "body": "{\"action\": \"send-message\", \"data\": {\"message\": \"Some message\"}}",
   "requestContext": {
     "connectionId": "connection-1",
     "authorizer": {

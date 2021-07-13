@@ -3,24 +3,49 @@ import { DynamoDbClient } from '@d00m/dynamo-db';
 export interface Connection {
   id: string;           // HASH
   userId: string;
-  authorizedAt:  Date;
+  authorizedAt: Date;
   connectedAt: Date;
   userName: string;
   userAgent: string;
   expiresAt: Date;      // TTL
 }
 
+export interface ConnectionData {
+  id: string;
+  userId: string;
+  authorizedAt: string;
+  connectedAt: string;
+  userName: string;
+  userAgent: string;
+  expiresAt?: string;
+}
+
 export class ConnectionsTable {
-  static async create(dynamoDbClient: DynamoDbClient, tableName: string, connection: Partial<Connection>, expireInSeconds?: number) {
+  private static mapDateToModel(data: ConnectionData): Connection {
+    return {
+      ...data,
+      authorizedAt: new Date(data.authorizedAt),
+      connectedAt: new Date(data.connectedAt),
+      expiresAt: new Date(data.expiresAt),
+    }
+  }
+
+  static async create(
+    dynamoDbClient: DynamoDbClient,
+    tableName: string,
+    connection: ConnectionData,
+    expireInSeconds?: number
+  ): Promise<Connection> {
     const item = {
       ...connection,
-      authorizedAt: connection.authorizedAt.toISOString(),
-      connectedAt: connection.connectedAt.toISOString(),
+      authorizedAt: connection.authorizedAt,
+      connectedAt: connection.connectedAt,
     }
 
     // Set TTL
     if (expireInSeconds) {
-      item.expiresAt = new Date(Date.now() + expireInSeconds * 1000);
+      const expiresAt = new Date(Date.now() + expireInSeconds * 1000);
+      item.expiresAt = expiresAt.toISOString();
     }
 
     const result = await dynamoDbClient
@@ -30,10 +55,10 @@ export class ConnectionsTable {
       })
       .promise();
 
-    return connection;
+    return ConnectionsTable.mapDateToModel(connection);
   }
 
-  static async getById(dynamoDbClient: DynamoDbClient, tableName: string, id: string) {
+  static async getById(dynamoDbClient: DynamoDbClient, tableName: string, id: string): Promise<Connection> {
     const response = await dynamoDbClient.query({
       TableName: tableName,
       KeyConditionExpression: 'id = :i',
@@ -47,17 +72,17 @@ export class ConnectionsTable {
       return undefined;
     }
 
-    return response.Items[0] as Connection;
+    return ConnectionsTable.mapDateToModel(response.Items[0] as ConnectionData);
   }
 
-  static async scan(dynamoDbClient: DynamoDbClient, tableName: string) {
+  static async scan(dynamoDbClient: DynamoDbClient, tableName: string): Promise<Connection[]> {
     const result = await dynamoDbClient.scan(
       {
         TableName: tableName,
         ProjectionExpression: 'id,userId,authorizedAt,connectedAt,userName,userAgent'
       }).promise();
 
-    return result.Items as Connection[];
+    return result.Items.map(ConnectionsTable.mapDateToModel);
   }
 
   static async updateExpiresAt(
@@ -65,7 +90,7 @@ export class ConnectionsTable {
     tableName: string,
     id: string,
     expireInSeconds: number
-  ) {
+  ): Promise<Connection> {
     const expiresAt = new Date(Date.now() + expireInSeconds * 1000);
 
     const response = await dynamoDbClient.update({
@@ -80,6 +105,6 @@ export class ConnectionsTable {
       ReturnValues: 'ALL_NEW'
     }).promise();
 
-    return response.$response.data as Connection;
+    return ConnectionsTable.mapDateToModel(response.$response.data as ConnectionData);
   }
 }

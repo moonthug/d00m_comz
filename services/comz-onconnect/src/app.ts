@@ -1,12 +1,15 @@
 import { APIGatewayProxyWithLambdaAuthorizerEvent, Context } from 'aws-lambda';
+import { ApiGatewayManagementApi } from 'aws-sdk';
 
 import { createLogger } from '@d00m/logger';
 import { createDynamoDbClientForLambda, DynamoDbClient } from '@d00m/dynamo-db';
 import { ConnectionsTable, UsersTable } from '@d00m/models';
-import { D00mAuthorizerContext } from '@d00m/dto';
+import { D00mAuthorizerContext, EventType, UsersEvent } from '@d00m/dto';
+import { sendToAll } from '@d00m/comz';
 
 import { LOG_LEVEL } from './constants/log';
 import { CONNECTION_EXPIRATION_S } from './constants/db';
+import { fetchOnlineUsers } from '@d00m/comz/dist/api/fetchOnlineUsers';
 
 
 let dynamoDbClient: DynamoDbClient;
@@ -27,6 +30,13 @@ export async function onConnectHandler(
   // Connect & cache DB
   dynamoDbClient = await createDynamoDbClientForLambda(dynamoDbClient);
 
+  // Api Manager
+  const apigwManagementApi = new ApiGatewayManagementApi({
+    apiVersion: '2018-11-29',
+    endpoint: event.requestContext.domainName + '/' + event.requestContext.stage
+  });
+
+
   try {
     const connectedAt = new Date();
 
@@ -41,8 +51,8 @@ export async function onConnectHandler(
       {
         id: connectionId,
         userId,
-        authorizedAt: new Date(authorizedAt),
-        connectedAt,
+        authorizedAt: authorizedAt,
+        connectedAt: connectedAt.toISOString(),
         userName,
         userAgent
       },
@@ -54,6 +64,17 @@ export async function onConnectHandler(
     logger.error(e);
     return { statusCode: 500, body: 'Failed to connect: ' + JSON.stringify(e) };
   }
+
+  // Emit all online users
+  const usersEvent: UsersEvent = {
+    event: EventType.USERS,
+    data: {
+      users: await fetchOnlineUsers(dynamoDbClient, CONNECTIONS_TABLE_NAME)
+    }
+  };
+  await sendToAll(dynamoDbClient, CONNECTIONS_TABLE_NAME, apigwManagementApi, usersEvent);
+
+  // Emit user
 
   logger.info(`exit: onConnectHandler`);
 
