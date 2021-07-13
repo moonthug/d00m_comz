@@ -8,11 +8,6 @@ export enum Event {
   MESSAGE = 'message'
 }
 
-export interface ActionRequest {
-  action: Action;
-  data?: unknown;
-}
-
 export interface ActionEvent {
   event: Event;
   data?: unknown;

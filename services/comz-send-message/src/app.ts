@@ -3,7 +3,7 @@ import { ApiGatewayManagementApi } from 'aws-sdk';
 
 import { createLogger } from '@d00m/logger';
 import { createDynamoDbClientForLambda, DynamoDbClient } from '@d00m/dynamo-db';
-import { D00mAuthorizerContext, Event, MessageEvent, SendMessageActionRequest } from '@d00m/dto';
+import { D00mAuthorizerContext, Event, MessageEvent, SendMessageActionBody } from '@d00m/dto';
 import { Connection, ConnectionsTable, MessagesTable } from '@d00m/models';
 
 import { LOG_LEVEL } from './constants/log';
@@ -28,8 +28,8 @@ export async function sendMessageHandler(
   dynamoDbClient = await createDynamoDbClientForLambda(dynamoDbClient);
 
   // Parse Body
-  const request = JSON.parse(event.body) as SendMessageActionRequest;
-  const { message } = request.data;
+  const body = JSON.parse(event.body) as SendMessageActionBody;
+  const { message } = body;
 
   // Fetch All connections
   let connections;
@@ -40,7 +40,7 @@ export async function sendMessageHandler(
   }
 
   logger.info(`Post to ${connections.length} connections`);
-  logger.debug(request.data);
+  logger.debug(body);
 
   // Api Manager
   const apigwManagementApi = new ApiGatewayManagementApi({
@@ -58,12 +58,12 @@ export async function sendMessageHandler(
   // Send events to each live connection
   const postCalls = connections.map(async (connection: Connection) => {
     if (connection.userId === userId) {
-      logger.info(`Skipping post to self ${connection.connectionId} [@${connection.userId}]`);
+      logger.info(`Skipping post to self ${connection.id} [@${connection.userId}]`);
       return Promise.resolve();
     }
 
     try {
-      logger.info(`Post to connection ${connection.connectionId} [@${connection.userId}]`);
+      logger.info(`Post to connection ${connection.id} [@${connection.userId}]`);
 
       const messageEvent: MessageEvent = {
         event: Event.MESSAGE,
@@ -74,15 +74,15 @@ export async function sendMessageHandler(
 
       // Send event
       await apigwManagementApi
-        .postToConnection({ ConnectionId: connection.connectionId, Data: JSON.stringify(messageEvent) })
+        .postToConnection({ ConnectionId: connection.id, Data: JSON.stringify(messageEvent) })
         .promise();
 
     } catch (e) {
       if (e.statusCode === 410) {
-        logger.info(`Found stale connection, deleting ${connection.connectionId} [@${connection.userId}]`);
-        await dynamoDbClient.delete({ TableName: CONNECTIONS_TABLE_NAME, Key: { connectionId: connection.connectionId } }).promise();
+        logger.info(`Found stale connection, deleting ${connection.id} [@${connection.userId}]`);
+        await dynamoDbClient.delete({ TableName: CONNECTIONS_TABLE_NAME, Key: { id: connection.id } }).promise();
       } else {
-        logger.error(`Couldn't post to connection ${connection.connectionId} [@${connection.userId}]`);
+        logger.error(`Couldn't post to connection ${connection.id} [@${connection.userId}]`);
         logger.error(e);
         throw e;
       }

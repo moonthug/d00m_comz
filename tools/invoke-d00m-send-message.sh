@@ -2,6 +2,6 @@
 
 sam local invoke \
   --template ../.aws-sam/build/template.yaml \
-  --event ../events/d00m-onconnect.json \
+  --event ../events/d00m-send-message.json \
   --env-vars ./env.json \
-  OnConnectFunction
+  SendMessageFunction

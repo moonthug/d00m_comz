@@ -7,5 +7,7 @@ export interface D00mAuthorizerContextUser {
 
 export interface D00mAuthorizerContext extends APIGatewayAuthorizerResultContext, D00mAuthorizerContextUser {
   authorizedAt: string;
+  hasConnection: boolean;
   userAgent: string;
+  expiresAt?: string;
 }

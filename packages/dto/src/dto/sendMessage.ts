@@ -1,10 +1,7 @@
-import { Action, ActionEvent, ActionRequest, ActionResponse, Event } from './actions';
+import { Action, ActionEvent, ActionResponse, Event } from './actions';
 
-export interface SendMessageActionRequest extends ActionRequest {
-  action: Action.SEND_MESSAGE;
-  data: {
-    message: string;
-  }
+export interface SendMessageActionBody {
+  message: string;
 }
 
 export interface SendMessageResponse extends ActionResponse {

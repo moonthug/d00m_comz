@@ -2,10 +2,11 @@ import { APIGatewayAuthorizerEvent, APIGatewayAuthorizerWithContextResult, APIGa
 
 import { createLogger } from '@d00m/logger';
 import { createDynamoDbClientForLambda, DynamoDbClient } from '@d00m/dynamo-db';
-import { UsersTable } from '@d00m/models';
+import { ConnectionsTable, UsersTable } from '@d00m/models';
 import { D00mAuthorizerContext } from '@d00m/dto';
 
 import { LOG_LEVEL } from './constants/log';
+import { CONNECTION_EXPIRATION_S } from './constants/db';
 import { createDenyPolicy } from './helpers/createDenyPolicy';
 import { createAllowPolicy } from './helpers/createAllowPolicy';
 
@@ -21,7 +22,7 @@ export async function authorizerHandler(
 
   context.callbackWaitsForEmptyEventLoop = false;
 
-  const { USERS_TABLE_NAME } = process.env;
+  const { CONNECTIONS_TABLE_NAME, USERS_TABLE_NAME } = process.env;
   const { connectionId } = event.requestContext;
 
   const authorization = event.headers['Authorization'];
@@ -40,18 +41,31 @@ export async function authorizerHandler(
   dynamoDbClient = await createDynamoDbClientForLambda(dynamoDbClient);
 
   // Authenticate
-  const me = await UsersTable.getUserById(dynamoDbClient, USERS_TABLE_NAME, userId);
+  const me = await UsersTable.getById(dynamoDbClient, USERS_TABLE_NAME, userId);
 
   // Bail if user not found
   if (!me) {
     throw new Error(`Cannot find user: ${userId}`);
   }
 
+  const authorizedAt = new Date();
+
+  // Update lastSeenAt
+  await UsersTable.updateLastConnectedAt(dynamoDbClient, USERS_TABLE_NAME, me.id, authorizedAt)
+
+  // Check for existing connection and update expiration
+  let connection = await ConnectionsTable.getById(dynamoDbClient, CONNECTIONS_TABLE_NAME, connectionId);
+  if (connection) {
+    connection = await ConnectionsTable.updateExpiresAt(dynamoDbClient, CONNECTIONS_TABLE_NAME, connectionId, CONNECTION_EXPIRATION_S)
+  }
+
   // Set context
   const authContext: D00mAuthorizerContext = {
     // Auth
-    authorizedAt: (new Date()).toISOString(),
+    authorizedAt: authorizedAt.toISOString(),
     userAgent,
+    hasConnection: !!connection,
+    expiresAt: connection?.expiresAt?.toISOString(),
 
     // User
     userId: me.id,

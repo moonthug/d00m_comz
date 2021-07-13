@@ -42,7 +42,7 @@ export async function listUsersHandler(
         ...existing,
         connections: [
           ...existing.connections,
-          connection.connectionId
+          connection.id
         ]
       });
     } else {
@@ -50,7 +50,7 @@ export async function listUsersHandler(
         id: connection.userId,
         name: connection.userName,
         connections: [
-          connection.connectionId
+          connection.id
         ]
       });
     }
@@ -84,7 +84,7 @@ export async function listUsersHandler(
   } catch (e) {
     if (e.statusCode === 410) {
       logger.info(`Found stale connection, deleting ${connectionId}`);
-      await dynamoDbClient.delete({ TableName: CONNECTIONS_TABLE_NAME, Key: { connectionId } }).promise();
+      await dynamoDbClient.delete({ TableName: CONNECTIONS_TABLE_NAME, Key: { id: connectionId } }).promise();
     } else {
       logger.error(`Couldn't post to connection ${connectionId}`);
       logger.error(e);

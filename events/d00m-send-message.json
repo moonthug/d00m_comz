@@ -1,4 +1,5 @@
 {
+  "body": "{\"message\": \"Some message\"}",
   "requestContext": {
     "connectionId": "connection-1",
     "authorizer": {

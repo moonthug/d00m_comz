@@ -4,9 +4,9 @@ import { ApiGatewayManagementApi } from 'aws-sdk';
 import { createLogger } from '@d00m/logger';
 import { Action, ChatHistoryResponse } from '@d00m/dto';
 import { createDynamoDbClientForLambda, DynamoDbClient } from '@d00m/dynamo-db';
+import { MessagesTable } from '@d00m/models';
 
 import { LOG_LEVEL } from './constants/log';
-import { MessagesTable } from '@d00m/models';
 
 
 let dynamoDbClient: DynamoDbClient;
@@ -59,7 +59,7 @@ export async function chatHistoryHandler(
   } catch (e) {
     if (e.statusCode === 410) {
       logger.info(`Found stale connection, deleting ${connectionId}`);
-      await dynamoDbClient.delete({ TableName: CONNECTIONS_TABLE_NAME, Key: { connectionId } }).promise();
+      await dynamoDbClient.delete({ TableName: CONNECTIONS_TABLE_NAME, Key: { id: connectionId } }).promise();
     } else {
       logger.error(`Couldn't post to connection ${connectionId}`);
       logger.error(e);

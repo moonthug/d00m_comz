@@ -32,6 +32,9 @@ Parameters:
   LogLevel:
     Type: String
     Default: 'debug'
+  ConnectionExpirationSeconds:
+    Type: String
+    Default: '600'
 
   # Conditions
   LogApiGateway:
@@ -174,10 +177,14 @@ Resources:
         Variables:
           ENVIRONMENT: !Ref Environment
           LOG_LEVEL: !Ref LogLevel
+          CONNECTIONS_TABLE_NAME: !Ref D00mConnectionsTable
           USERS_TABLE_NAME: !Ref D00mUsersTable
+          CONNECTION_EXPIRATION_S: !Ref ConnectionExpirationSeconds
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref D00mUsersTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref D00mConnectionsTable
 
   AuthorizerPermission:
     Type: AWS::Lambda::Permission
@@ -212,9 +219,13 @@ Resources:
           ENVIRONMENT: !Ref Environment
           LOG_LEVEL: !Ref LogLevel
           CONNECTIONS_TABLE_NAME: !Ref D00mConnectionsTable
+          USERS_TABLE_NAME: !Ref D00mUsersTable
+          CONNECTION_EXPIRATION_S: !Ref ConnectionExpirationSeconds
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref D00mConnectionsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref D00mUsersTable
 
   OnConnectPermission:
     Type: AWS::Lambda::Permission
@@ -505,18 +516,17 @@ Resources:
     Properties:
       TableName: !Sub '${Namespace}-${Environment}-connections'
       AttributeDefinitions:
-        - AttributeName: connectionId
-          AttributeType: S
-        - AttributeName: userId
+        - AttributeName: id
           AttributeType: S
       KeySchema:
-        - AttributeName: connectionId
+        - AttributeName: id
           KeyType: HASH
-        - AttributeName: userId
-          KeyType: RANGE
       ProvisionedThroughput:
         ReadCapacityUnits: 5
         WriteCapacityUnits: 5
+      TimeToLiveSpecification:
+        AttributeName: expiresAt
+        Enabled: true
 
   D00mMessagesTable:
     Type: AWS::DynamoDB::Table

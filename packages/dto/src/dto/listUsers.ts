@@ -1,8 +1,4 @@
-import { Action, ActionRequest, ActionResponse } from './actions';
-
-export interface ListUsersActionRequest extends ActionRequest {
-  action: Action.LIST_USERS;
-}
+import { Action, ActionResponse } from './actions';
 
 export interface ListUsersResponseUser {
   id: string;
