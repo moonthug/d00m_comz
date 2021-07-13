@@ -10,11 +10,14 @@ export class UsersTable {
   static async getUserById(dynamoDbClient: DynamoDbClient, tableName: string, id: string) {
     const response = await dynamoDbClient.query({
         TableName: tableName,
-        KeyConditionExpression: 'id = :userId',
+        KeyConditionExpression: 'id = :i',
         ExpressionAttributeValues: {
-          ':userId': id
+          ':i': id
         },
-        ProjectionExpression: 'id,name'
+        ExpressionAttributeNames: {
+          '#n': 'name'
+        },
+        ProjectionExpression: 'id,#n'
       }).promise();
 
     if (!response?.Items.length) {

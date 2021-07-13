@@ -32,7 +32,7 @@ export class MessagesTable {
     const result = await dynamoDbClient.scan(
       {
         TableName: tableName,
-        ProjectionExpression: 'userId,createdAt,message,connectionId'
+        ProjectionExpression: 'fromUserId,createdAt,fromConnectionId,message'
       }).promise();
 
     return result.Items as Message[];

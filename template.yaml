@@ -175,6 +175,9 @@ Resources:
           ENVIRONMENT: !Ref Environment
           LOG_LEVEL: !Ref LogLevel
           USERS_TABLE_NAME: !Ref D00mUsersTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref D00mUsersTable
 
   AuthorizerPermission:
     Type: AWS::Lambda::Permission

@@ -13,10 +13,17 @@ export interface Connection {
 
 export class ConnectionsTable {
   static async create(dynamoDbClient: DynamoDbClient, tableName: string, connection: Connection) {
+
+    const item = {
+      ...connection,
+      authorizedAt: connection.authorizedAt.toISOString(),
+      connectedAt: connection.connectedAt.toISOString(),
+    }
+
     const result = await dynamoDbClient
       .put({
         TableName: tableName,
-        Item: connection
+        Item: item
       })
       .promise();
 
