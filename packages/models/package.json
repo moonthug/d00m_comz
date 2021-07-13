@@ -1,6 +1,6 @@
 {
   "name": "@d00m/models",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Models",
   "author": "Alex Coulcher <alex@polyglot.rodeo>",
   "main": "dist/index.js",
@@ -12,6 +12,6 @@
     "build": "tsc"
   },
   "dependencies": {
-    "@d00m/dynamo-db": "^0.0.4"
+    "@d00m/dynamo-db": "^0.0.5"
   }
 }

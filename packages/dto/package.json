@@ -1,6 +1,6 @@
 {
   "name": "@d00m/dto",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "description": "Database",
   "author": "Alex Coulcher <alex@polyglot.rodeo>",
   "main": "dist/index.js",
@@ -12,7 +12,7 @@
     "build": "tsc"
   },
   "dependencies": {
-    "@d00m/models": "^0.0.1",
+    "@d00m/models": "^0.0.2",
     "aws-lambda": "^1.0.6"
   }
 }

@@ -1,6 +1,6 @@
 {
   "name": "@d00m/logger",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Logger",
   "author": "Alex Coulcher <alex@polyglot.rodeo>",
   "main": "dist/index.js",

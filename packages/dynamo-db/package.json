@@ -1,6 +1,6 @@
 {
   "name": "@d00m/dynamo-db",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "Database",
   "author": "Alex Coulcher <alex@polyglot.rodeo>",
   "main": "dist/index.js",
@@ -12,7 +12,7 @@
     "build": "tsc"
   },
   "dependencies": {
-    "@d00m/logger": "^0.0.3",
+    "@d00m/logger": "^0.0.4",
     "aws-sdk": "^2.932.0"
   }
 }
