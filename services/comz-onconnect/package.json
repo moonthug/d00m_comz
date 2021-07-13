@@ -1,6 +1,6 @@
 {
   "name": "@d00m/comz-onconnect",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "description": "d00m-comz API",
   "author": "Alex Coulcher <alex@polyglot.rodeo>",
   "private": true,
@@ -8,9 +8,9 @@
     "access": "restricted"
   },
   "dependencies": {
-    "@d00m/dto": "^0.0.9",
+    "@d00m/dto": "^0.0.10",
     "@d00m/dynamo-db": "^0.0.5",
     "@d00m/logger": "^0.0.4",
-    "@d00m/models": "^0.0.3"
+    "@d00m/models": "^0.0.4"
   }
 }
