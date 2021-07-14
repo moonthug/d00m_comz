@@ -1,6 +1,6 @@
 {
   "name": "@d00m/comz-send-message",
-  "version": "0.0.12",
+  "version": "0.0.13",
   "description": "d00m-comz API",
   "author": "Alex Coulcher <alex@polyglot.rodeo>",
   "private": true,
@@ -8,11 +8,11 @@
     "access": "restricted"
   },
   "dependencies": {
-    "@d00m/comz": "^0.0.12",
-    "@d00m/dto": "^0.0.12",
+    "@d00m/comz": "^0.0.13",
+    "@d00m/dto": "^0.0.13",
     "@d00m/dynamo-db": "^0.0.5",
     "@d00m/logger": "^0.0.4",
-    "@d00m/models": "^0.0.6",
+    "@d00m/models": "^0.0.7",
     "aws-sdk": "^2.940.0"
   }
 }
