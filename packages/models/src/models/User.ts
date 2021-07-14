@@ -46,7 +46,7 @@ export class UsersTable {
         ExpressionAttributeNames: {
           '#name': 'name'
         },
-        ProjectionExpression: 'id,#name'
+        ProjectionExpression: 'pk,sk,#name,lastSeenAt,lastConnectedAt'
       }).promise();
 
     if (!response?.Items.length) {
@@ -86,10 +86,10 @@ export class UsersTable {
   ): Promise<User> {
     const response = await dynamoDbClient.update({
         TableName: tableName,
-      Key: {
-        pk: UsersTable.pk,
-        sk: id
-      },
+        Key: {
+          pk: UsersTable.pk,
+          sk: id
+        },
         UpdateExpression: 'set lastConnectedAt = :lastConnectedAt',
         ExpressionAttributeValues:{
           ':lastConnectedAt': connectedAt.toISOString()
