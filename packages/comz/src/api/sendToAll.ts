@@ -5,6 +5,7 @@ import { ConnectionsTable } from '@d00m/models';
 import { DynamoDbClient } from '@d00m/dynamo-db';
 
 import { sendToConnection } from './sendToConnection';
+import { createLogger } from '@d00m/logger';
 
 
 export interface SendToAllOptions {
@@ -18,6 +19,9 @@ export async function sendToAll(
   event: Event,
   options?: SendToAllOptions
 ): Promise<any> {
+  const logger = createLogger('sendToAll', process.env.LOG_LEVEL);
+  logger.info(`enter: sendToAll`);
+
   // Fetch All connections
   const connections = await ConnectionsTable.scan(dynamoDbClient, tableName);
 
@@ -34,5 +38,15 @@ export async function sendToAll(
       event
     ));
 
-  return Promise.all(postCalls);
+  let response;
+  try {
+    response = await Promise.all(postCalls);
+  } catch (e) {
+    logger.error(`Couldn't send to all connections`);
+    logger.error(e);
+  }
+
+  logger.info(`exit: sendToConnection`);
+
+  return response;
 }

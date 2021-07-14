@@ -40,14 +40,12 @@ export async function onConnectHandler(
     const connectedAt = new Date();
 
     // Update user
-    logger.info(`update user`);
     await UsersTable.updateLastConnectedAt(dynamoDbClient, USERS_TABLE_NAME,
       userId,
       connectedAt
-    )
+    );
 
     // Put connection
-    logger.info(`create connection`);
     await ConnectionsTable.create(dynamoDbClient, CONNECTIONS_TABLE_NAME,
       {
         id: connectionId,
@@ -72,10 +70,14 @@ export async function onConnectHandler(
       users: await fetchOnlineUsers(dynamoDbClient, CONNECTIONS_TABLE_NAME)
     }
   };
-  logger.info(`send users to all`);
-  await sendToAll(dynamoDbClient, CONNECTIONS_TABLE_NAME, apigwManagementApi, usersEvent);
 
-  // Emit user
+  await sendToAll(
+    dynamoDbClient,
+    CONNECTIONS_TABLE_NAME,
+    apigwManagementApi,
+    usersEvent,
+    { skipUserIds: [ userId ] }
+  );
 
   logger.info(`exit: onConnectHandler`);
 
