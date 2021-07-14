@@ -64,10 +64,24 @@ export async function onConnectHandler(
   }
 
   // Emit all online users
+  const users = await fetchOnlineUsers(dynamoDbClient, CONNECTIONS_TABLE_NAME);
+
+  const newUserIndex = users.findIndex(user => user.id === userId);
+
+  // Remove the new user from the users list if they have only one connection
+  let newUser;
+  if (newUserIndex !== -1) {
+    if (users[newUserIndex].connections.length === 1) {
+      const newUsersSlice = users.splice(newUserIndex, 1);
+      newUser = newUsersSlice.length > 0 ? newUsersSlice[0] : undefined;
+    }
+  }
+
   const usersEvent: UsersEvent = {
     event: EventType.USERS,
     data: {
-      users: await fetchOnlineUsers(dynamoDbClient, CONNECTIONS_TABLE_NAME)
+      newUser,
+      users
     }
   };
 

@@ -178,11 +178,11 @@ Resources:
           ENVIRONMENT: !Ref Environment
           LOG_LEVEL: !Ref LogLevel
           CONNECTIONS_TABLE_NAME: !Ref D00mConnectionsTable
-          USERS_TABLE_NAME: !Ref D00mUsersTable
+          MONOLITH_TABLE_NAME: !Ref D00mMonolithTable
           CONNECTION_EXPIRATION_S: !Ref ConnectionExpirationSeconds
       Policies:
         - DynamoDBCrudPolicy:
-            TableName: !Ref D00mUsersTable
+            TableName: !Ref D00mMonolithTable
         - DynamoDBCrudPolicy:
             TableName: !Ref D00mConnectionsTable
 
@@ -219,13 +219,13 @@ Resources:
           ENVIRONMENT: !Ref Environment
           LOG_LEVEL: !Ref LogLevel
           CONNECTIONS_TABLE_NAME: !Ref D00mConnectionsTable
-          USERS_TABLE_NAME: !Ref D00mUsersTable
+          MONOLITH_TABLE_NAME: !Ref D00mMonolithTable
           CONNECTION_EXPIRATION_S: !Ref ConnectionExpirationSeconds
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref D00mConnectionsTable
         - DynamoDBCrudPolicy:
-            TableName: !Ref D00mUsersTable
+            TableName: !Ref D00mMonolithTable
         - Statement:
           - Effect: Allow
             Action:
@@ -344,12 +344,12 @@ Resources:
           ENVIRONMENT: !Ref Environment
           LOG_LEVEL: !Ref LogLevel
           CONNECTIONS_TABLE_NAME: !Ref D00mConnectionsTable
-          MESSAGES_TABLE_NAME: !Ref D00mMessagesTable
+          MONOLITH_TABLE__NAME: !Ref D00mMonolithTable
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref D00mConnectionsTable
         - DynamoDBCrudPolicy:
-            TableName: !Ref D00mMessagesTable
+            TableName: !Ref D00mMonolithTable
         - Statement:
           - Effect: Allow
             Action:
@@ -406,12 +406,12 @@ Resources:
           ENVIRONMENT: !Ref Environment
           LOG_LEVEL: !Ref LogLevel
           CONNECTIONS_TABLE_NAME: !Ref D00mConnectionsTable
-          MESSAGES_TABLE_NAME: !Ref D00mMessagesTable
+          MONOLITH_TABLE__NAME: !Ref D00mMonolithTable
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref D00mConnectionsTable
         - DynamoDBCrudPolicy:
-            TableName: !Ref D00mMessagesTable
+            TableName: !Ref D00mMonolithTable
         - Statement:
             - Effect: Allow
               Action:
@@ -460,7 +460,7 @@ Resources:
   ListUsersFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub '${Namespace}-${Environment}-comz-users'
+      FunctionName: !Sub '${Namespace}-${Environment}-comz-list-users'
       CodeUri: services/comz-list-users/src
       Handler: app.listUsersHandler
       Environment:
@@ -468,12 +468,11 @@ Resources:
           ENVIRONMENT: !Ref Environment
           LOG_LEVEL: !Ref LogLevel
           CONNECTIONS_TABLE_NAME: !Ref D00mConnectionsTable
-          MESSAGES_TABLE_NAME: !Ref D00mMessagesTable
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref D00mConnectionsTable
         - DynamoDBCrudPolicy:
-            TableName: !Ref D00mMessagesTable
+            TableName: !Ref D00mMonolithTable
         - Statement:
             - Effect: Allow
               Action:
@@ -544,37 +543,23 @@ Resources:
         AttributeName: expiresAt
         Enabled: true
 
-  D00mMessagesTable:
+  D00mMonolithTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub '${Namespace}-${Environment}-messages'
+      TableName: !Sub '${Namespace}-${Environment}-monolith'
       AttributeDefinitions:
-        - AttributeName: fromUserId
+        - AttributeName: pk
           AttributeType: S
-        - AttributeName: createdAt
+        - AttributeName: sk
           AttributeType: S
       KeySchema:
-        - AttributeName: fromUserId
+        - AttributeName: pk
           KeyType: HASH
-        - AttributeName: createdAt
+        - AttributeName: sk
           KeyType: RANGE
       ProvisionedThroughput:
         ReadCapacityUnits: 5
         WriteCapacityUnits: 5
-
-  D00mUsersTable:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      TableName: !Sub '${Namespace}-${Environment}-users'
-      AttributeDefinitions:
-        - AttributeName: id
-          AttributeType: S
-      KeySchema:
-        - AttributeName: id
-          KeyType: HASH
-      ProvisionedThroughput:
-        ReadCapacityUnits: 5
-        WriteCapacityUnits: 1
 
 
   ##############################################

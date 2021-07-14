@@ -2,7 +2,7 @@ import { APIGatewayEvent, Context } from 'aws-lambda';
 import { ApiGatewayManagementApi } from 'aws-sdk';
 
 import { createLogger } from '@d00m/logger';
-import { ActionType, ChatHistoryResponse } from '@d00m/dto';
+import { ActionType, ChatHistoryResponse, D00mAuthorizerContext } from '@d00m/dto';
 import { createDynamoDbClientForLambda, DynamoDbClient } from '@d00m/dynamo-db';
 import { MessagesTable } from '@d00m/models';
 import { sendToConnection } from '@d00m/comz';
@@ -19,8 +19,9 @@ export async function chatHistoryHandler(
   const logger = createLogger('chatHistoryHandler', LOG_LEVEL);
   logger.info(`enter: chatHistoryHandler`);
 
-  const { CONNECTIONS_TABLE_NAME, MESSAGES_TABLE_NAME } = process.env;
+  const { CONNECTIONS_TABLE_NAME, MONOLITH_TABLE_NAME } = process.env;
   const { connectionId } = event.requestContext;
+  const { userId, userName, lastConnectedAt } = event.requestContext.authorizer as D00mAuthorizerContext;
 
   context.callbackWaitsForEmptyEventLoop = false;
 
@@ -36,7 +37,11 @@ export async function chatHistoryHandler(
   // Fetch all messages
   let messages;
   try {
-    messages = await MessagesTable.scan(dynamoDbClient, MESSAGES_TABLE_NAME);
+    messages = await MessagesTable.getMessagesSinceDate(dynamoDbClient, MONOLITH_TABLE_NAME,
+      new Date(lastConnectedAt),
+      {
+        limit: 50
+      });
   } catch (e) {
     return { statusCode: 500, body: e.stack };
   }

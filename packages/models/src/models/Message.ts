@@ -1,26 +1,44 @@
 import { DynamoDbClient } from '@d00m/dynamo-db';
 
 export interface Message {
-  fromUserId: string;   // HASH
-  createdAt: Date;  // RANGE
+  createdAt: Date;      // RANGE
   message: string;
+  fromUserId: string;
   fromUserName: string;
-  fromConnectionId?: string;
+  fromConnectionId: string;
+}
+
+export interface MessageDocument {
+  pk: string;   // HASH
+  sk: string;   // RANGE
+  message: string;
+  fromUserId: string;
+  fromUserName: string;
+  fromConnectionId: string;
 }
 
 export interface MessageData {
-  fromUserId: string;   // HASH
-  createdAt?: string;  // RANGE
+  createdAt?: string;   // RANGE
   message: string;
+  fromUserId: string;
   fromUserName: string;
-  fromConnectionId?: string;
+  fromConnectionId: string;
+}
+
+export interface QueryOptions {
+  limit: number;
 }
 
 export class MessagesTable {
-  private static mapDateToModel(data: MessageData): Message {
+  private static pk = 'message';
+
+  private static mapDocumentToModel(document: MessageDocument): Message {
     return {
-      ...data,
-      createdAt: new Date(data.createdAt)
+      createdAt: new Date(document.sk),
+      message: document.message,
+      fromUserId: document.fromUserId,
+      fromUserName: document.fromUserId,
+      fromConnectionId: document.fromConnectionId,
     }
   }
 
@@ -30,10 +48,14 @@ export class MessagesTable {
     message: MessageData
   ): Promise<Message> {
     const item = {
-      ...message,
-      createdAt: message.createdAt
+      pk: MessagesTable.pk,
+      sk: message.createdAt
         ? message.createdAt
-        : (new Date()).toISOString()
+        : (new Date()).toISOString(),
+      message: message.message,
+      fromUserId: message.fromUserId,
+      fromUserName: message.fromUserName,
+      fromConnectionId: message.fromConnectionId
     }
 
     const result = await dynamoDbClient
@@ -43,14 +65,36 @@ export class MessagesTable {
       })
       .promise();
 
-    return MessagesTable.mapDateToModel(item);
+    return MessagesTable.mapDocumentToModel(item);
   }
 
   static async scan(dynamoDbClient: DynamoDbClient, tableName: string): Promise<Message[]> {
     const result = await dynamoDbClient.scan(
       {
         TableName: tableName,
-        ProjectionExpression: 'fromUserId,createdAt,fromConnectionId,message'
+        ProjectionExpression: 'pk,sk,fromUserId,fromUserName,fromConnectionId,message'
+      }).promise();
+
+    return result.Items as Message[];
+  }
+
+  static async getMessagesSinceDate(
+    dynamoDbClient: DynamoDbClient,
+    tableName: string,
+    since: Date,
+    options: QueryOptions
+  ): Promise<Message[]> {
+    const result = await dynamoDbClient.query(
+      {
+        KeyConditionExpression: 'pk = :type AND sk > :createdAt',
+        ExpressionAttributeValues: {
+          ':type': MessagesTable.pk,
+          ':createdAt': since.toISOString()
+        },
+        Limit: options.limit,
+        ProjectionExpression: 'pk,sk,fromUserId,fromUserName,fromConnectionId,message',
+        ScanIndexForward: false,
+        TableName: tableName
       }).promise();
 
     return result.Items as Message[];

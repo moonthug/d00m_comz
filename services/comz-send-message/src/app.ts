@@ -3,8 +3,8 @@ import { ApiGatewayManagementApi } from 'aws-sdk';
 
 import { createLogger } from '@d00m/logger';
 import { createDynamoDbClientForLambda, DynamoDbClient } from '@d00m/dynamo-db';
-import { D00mAuthorizerContext, Event, EventType, MessageEvent, SendMessageActionRequest } from '@d00m/dto';
-import { Connection, ConnectionsTable, MessagesTable } from '@d00m/models';
+import { D00mAuthorizerContext, EventType, MessageEvent, SendMessageActionRequest } from '@d00m/dto';
+import { MessagesTable } from '@d00m/models';
 
 import { LOG_LEVEL } from './constants/log';
 import { sendToAll } from '@d00m/comz';
@@ -19,7 +19,7 @@ export async function sendMessageHandler(
   const logger = createLogger('sendMessageHandler', LOG_LEVEL);
   logger.info(`enter: sendMessageHandler`);
 
-  const { CONNECTIONS_TABLE_NAME, MESSAGES_TABLE_NAME } = process.env;
+  const { CONNECTIONS_TABLE_NAME, MONOLITH_TABLE_NAME } = process.env;
   const { userId, userName } = event.requestContext.authorizer as D00mAuthorizerContext;
   const { connectionId } = event.requestContext;
 
@@ -39,7 +39,7 @@ export async function sendMessageHandler(
   const { message } = request.data;
 
   // Put message
-  await MessagesTable.create(dynamoDbClient, MESSAGES_TABLE_NAME, {
+  await MessagesTable.create(dynamoDbClient, MONOLITH_TABLE_NAME, {
     fromUserId: userId,
     fromUserName: userName,
     fromConnectionId: connectionId,
@@ -60,8 +60,7 @@ export async function sendMessageHandler(
     dynamoDbClient,
     CONNECTIONS_TABLE_NAME,
     apigwManagementApi,
-    messageEvent,
-    { skipUserIds: [ userId ] }
+    messageEvent
   );
 
   logger.info(`exit: sendMessageHandler`);

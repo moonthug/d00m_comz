@@ -22,7 +22,7 @@ export async function authorizerHandler(
 
   context.callbackWaitsForEmptyEventLoop = false;
 
-  const { CONNECTIONS_TABLE_NAME, USERS_TABLE_NAME } = process.env;
+  const { CONNECTIONS_TABLE_NAME, MONOLITH_TABLE_NAME } = process.env;
   const { connectionId } = event.requestContext;
 
   const token = event.queryStringParameters.token;
@@ -41,7 +41,7 @@ export async function authorizerHandler(
   dynamoDbClient = await createDynamoDbClientForLambda(dynamoDbClient);
 
   // Authenticate
-  const me = await UsersTable.getById(dynamoDbClient, USERS_TABLE_NAME, userId);
+  const me = await UsersTable.getById(dynamoDbClient, MONOLITH_TABLE_NAME, userId);
 
   // Bail if user not found
   if (!me) {
@@ -51,7 +51,7 @@ export async function authorizerHandler(
   const authorizedAt = new Date();
 
   // Update lastSeenAt
-  await UsersTable.updateLastConnectedAt(dynamoDbClient, USERS_TABLE_NAME, me.id, authorizedAt)
+  await UsersTable.updateLastConnectedAt(dynamoDbClient, MONOLITH_TABLE_NAME, me.id, authorizedAt)
 
   // Check for existing connection and update expiration
   let connection = await ConnectionsTable.getById(dynamoDbClient, CONNECTIONS_TABLE_NAME, connectionId);
@@ -65,6 +65,7 @@ export async function authorizerHandler(
     authorizedAt: authorizedAt.toISOString(),
     userAgent,
     hasConnection: !!connection,
+    lastConnectedAt: me.lastConnectedAt.toISOString(),
     expiresAt: connection?.expiresAt?.toISOString(),
 
     // User

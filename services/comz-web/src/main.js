@@ -33,7 +33,11 @@
       case 'users':
       case 'list-users':
         if (direction === 'in') {
-          body = event.data.users
+          if (event.data.newUser) {
+            body = '🌟👩‍💻 ' + event.data.newUser.name + '<br/>'
+          }
+
+          body += event.data.users
             .map(user => '👩‍💻 ' + user.name + ' [' + user.lastSeen + ']')
             .join('<br/>')
         }
@@ -57,7 +61,7 @@
       '  <small class="font-monospace text-muted">' + JSON.stringify(event) + '</small>\n' +
       '</div>';
 
-    $messages.appendChild(template.content.firstChild);
+    $messages.prepend(template.content.firstChild);
   }
 
   //
